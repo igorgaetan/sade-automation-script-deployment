@@ -1,0 +1,79 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ "dev" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: "**/package-lock.json"
+
+    # Charger toutes les variables d’environnement depuis le fichier .env-git
+    - name: Load all environment variables
+      id: load-env
+      run: |
+        echo "🔍 Chargement du fichier .env-git..."
+        if [[ ! -f .env-git ]]; then
+          echo "Fichier .env-git non trouvé."
+          exit 1
+        fi
+        cat .env-git  # Debug : Afficher le contenu de .env-git
+        # Charger toutes les variables du fichier .env-git dans $GITHUB_ENV
+        while IFS= read -r line; do
+          if [[ $line != \#* && $line == *"="* ]]; then
+            key=$(echo "$line" | cut -d '=' -f1)
+            value=$(echo "$line" | cut -d '=' -f2-)
+            echo "$key=$value" >> $GITHUB_ENV
+            echo "✅ Variable chargée : $key"
+          fi
+        done < .env-git
+        
+    # Démarrer toutes les applications listées dans le .env-git
+    - name: Start all applications
+      run: |
+        IFS=',' read -ra APPS <<< "$APP_LIST"
+        
+        for APP_NAME in "${APPS[@]}"; do
+          # Construire les noms de variables
+          APP_VAR_PATH="${APP_NAME^^}_PATH"  
+          APP_PATH="${!APP_VAR_PATH}"
+          
+          APP_VAR_PORT="${APP_NAME^^}_PORT"  # ex: APP1_PORT
+          APP_PORT="${!APP_VAR_PORT}"
+
+        
+          # Afficher le nom de l’application et la date
+          echo ".........................................."
+          echo "🚀 Démarrage de l'application : $APP_NAME"
+          echo "📅 Date : $(date)"
+          echo ".........................................."
+          
+          # Se déplacer dans le répertoire de l'application
+          cd "$APP_PATH"
+          
+          # Installer les dépendances
+          npm ci
+          
+          # Builder le projet (si applicable)
+          npm run build --if-present
+          
+          # Démarrer l'application et enregistrer le PID
+          PORT="$APP_PORT" npm start & PID=$!
+          echo "$PID" > app.pid
+          echo "✅ Application $APP_NAME démarrée avec PID $PID"
+          cd - >/dev/null
+        done
