@@ -1,6 +1,0 @@
-
-> myapp@0.0.0 start
-> node ./bin/www
-
-[0mGET / [36m304 [0m179.776 ms - -[0m
-[0mGET /stylesheets/style.css [36m304 [0m1.244 ms - -[0m
