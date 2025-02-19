@@ -1,0 +1,4 @@
+/App1/node_modules
+/App2/node_modules
+/App3/node_modules
+.env_healthCheck
